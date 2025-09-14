@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="/style.css">
+  <title>Dashboard</title>
+  <style>
+    canvas { border: 2px solid #333; background: #f0f0f0; display: block; margin: 20px auto; }
+    #game-info { text-align: center; margin: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome <%= user.username %> 🚀</h2>
+    <p>Level: <span id="level"><%= user.level %></span> | High Score: <span id="highScore"><%= user.highScore %></span></p>
+
+    <canvas id="gameCanvas" width="500" height="400"></canvas>
+    <div id="game-info">
+      <p>Score: <span id="score">0</span></p>
+    </div>
+
+    <a href="/settings"><button>Settings</button></a>
+    <a href="/logout"><button>Logout</button></a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let crane = { x: 230, y: 350, width: 40, height: 40, speed: 5 };
+    let errorBlocks = [];
+    let score = 0;
+
+    function spawnError() {
+      let x = Math.random() * (canvas.width - 30);
+      errorBlocks.push({ x: x, y: 0, width: 30, height: 30, speed: 2 });
+    }
+
+    function drawCrane() {
+      ctx.fillStyle = "blue";
+      ctx.fillRect(crane.x, crane.y, crane.width, crane.height);
+    }
+
+    function drawErrors() {
+      ctx.fillStyle = "red";
+      errorBlocks.forEach((block) => {
+        ctx.fillRect(block.x, block.y, block.width, block.height);
+      });
+    }
+
+    function updateErrors() {
+      errorBlocks.forEach((block, i) => {
+        block.y += block.speed;
+        if (
+          block.x < crane.x + crane.width &&
+          block.x + block.width > crane.x &&
+          block.y < crane.y + crane.height &&
+          block.y + block.height > crane.y
+        ) {
+          score++;
+          document.getElementById("score").innerText = score;
+          errorBlocks.splice(i, 1);
+          saveScore(score);
+        }
+        if (block.y > canvas.height) errorBlocks.splice(i, 1);
+      });
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCrane();
+      drawErrors();
+      updateErrors();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" && crane.x > 0) crane.x -= crane.speed;
+      if (e.key === "ArrowRight" && crane.x < canvas.width - crane.width) crane.x += crane.speed;
+      if (e.key === "ArrowUp" && crane.y > 0) crane.y -= crane.speed;
+      if (e.key === "ArrowDown" && crane.y < canvas.height - crane.height) crane.y += crane.speed;
+    });
+
+    setInterval(spawnError, 2000);
+    gameLoop();
+
+    async function saveScore(score) {
+      try {
+        const res = await fetch("/save-score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ score })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById("highScore").innerText = data.highScore;
+          document.getElementById("level").innerText = data.level;
+        }
+      } catch (err) {
+        console.error("Error saving score:", err);
+      }
+    }
+  </script>
+</body>
+</html>
